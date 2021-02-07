@@ -106,15 +106,17 @@ In this application, we use **cats effect IO** as our effect type, and use **cat
 
 ## Getting Started
 
+Be aware that this project targets **Java 11**.
+
 Start up sbt:
 
-```
-> sbt
+```bash
+sbt --java-home {your.java.11.location}
 ```
 
 Once sbt has loaded, you can start up the application
 
-```
+```sbtshell
 > ~reStart
 ```
 
@@ -123,7 +125,7 @@ will be automatically rebuilt when you make code changes
 
 To stop the app in sbt, hit the `Enter` key and then type:
 
-```
+```sbtshell
 > reStop
 ```
 
@@ -132,7 +134,7 @@ Building out a test suite using Python.  The reason is that typically we want to
 when we deploy our code in order to make sure that everything is running properly in the target environment.  It
 is reassuring to know that your code works across clients.
 
-In order to run the functional tests, your machine will need to have Python 2.7 and pip, and virtualenv.
+In order to run the functional tests, your machine will need to have Python 3 and pip, and virtualenv.
 
 1. To install pip on a Mac, run `sudo easy_install pip`
 2. Then install virutalenv `sudo pip install virtualenv`

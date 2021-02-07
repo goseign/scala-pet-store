@@ -15,13 +15,13 @@ class PetRepositoryInMemoryInterpreter[F[_]: Applicative] extends PetRepositoryA
   private val random = new Random
 
   def create(pet: Pet): F[Pet] = {
-    val id = random.nextLong
+    val id = random.nextLong()
     val toSave = pet.copy(id = id.some)
     cache += (id -> pet.copy(id = id.some))
     toSave.pure[F]
   }
 
-  def update(pet: Pet): F[Option[Pet]] = pet.id.traverse{ id =>
+  def update(pet: Pet): F[Option[Pet]] = pet.id.traverse { id =>
     cache.update(id, pet)
     pet.pure[F]
   }

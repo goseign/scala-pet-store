@@ -12,22 +12,21 @@ import tsec.authentication.IdentityStore
 import scala.collection.concurrent.TrieMap
 
 class UserRepositoryInMemoryInterpreter[F[_]: Applicative]
-  extends UserRepositoryAlgebra[F]
+    extends UserRepositoryAlgebra[F]
     with IdentityStore[F, Long, User] {
-
   private val cache = new TrieMap[Long, User]
 
   private val random = new Random
 
   def create(user: User): F[User] = {
-    val id = random.nextLong
+    val id = random.nextLong()
     val toSave = user.copy(id = id.some)
     cache += (id -> toSave)
     toSave.pure[F]
   }
 
   def update(user: User): OptionT[F, User] = OptionT {
-    user.id.traverse{ id =>
+    user.id.traverse { id =>
       cache.update(id, user)
       user.pure[F]
     }
@@ -50,7 +49,7 @@ class UserRepositoryInMemoryInterpreter[F[_]: Applicative]
       for {
         user <- cache.values.find(u => u.userName == userName)
         removed <- cache.remove(user.id.get)
-      } yield removed
+      } yield removed,
     )
 }
 

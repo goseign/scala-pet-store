@@ -5,18 +5,17 @@ import scala.collection.concurrent.TrieMap
 import scala.util.Random
 
 import cats._
-import cats.implicits._
+import cats.syntax.all._
 import domain.orders.{Order, OrderRepositoryAlgebra}
 
 class OrderRepositoryInMemoryInterpreter[F[_]: Applicative] extends OrderRepositoryAlgebra[F] {
-
   private val cache = new TrieMap[Long, Order]
 
   private val random = new Random
 
   def create(order: Order): F[Order] = {
-    val toSave = order.copy(id = order.id.orElse(random.nextLong.some))
-    toSave.id.foreach { cache.put(_, toSave) }
+    val toSave = order.copy(id = order.id.orElse(random.nextLong().some))
+    toSave.id.foreach(cache.put(_, toSave))
     toSave.pure[F]
   }
 

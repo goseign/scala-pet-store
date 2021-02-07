@@ -13,20 +13,20 @@ import org.http4s.dsl._
 import org.http4s.circe._
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.server.Router
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 import tsec.mac.jca.HMACSHA256
+import org.scalatest.matchers.should.Matchers
 
 class PetEndpointsSpec
-    extends FunSuite
+    extends AnyFunSuite
     with Matchers
     with ScalaCheckPropertyChecks
     with PetStoreArbitraries
     with Http4sDsl[IO]
-    with Http4sClientDsl[IO]{
-
-  implicit val petEnc : EntityEncoder[IO, Pet] = jsonEncoderOf
-  implicit val petDec : EntityDecoder[IO, Pet] = jsonOf
+    with Http4sClientDsl[IO] {
+  implicit val petEnc: EntityEncoder[IO, Pet] = jsonEncoderOf
+  implicit val petDec: EntityDecoder[IO, Pet] = jsonOf
 
   def getTestResources(): (AuthTest[IO], HttpApp[IO], PetRepositoryInMemoryInterpreter[IO]) = {
     val userRepo = UserRepositoryInMemoryInterpreter[IO]()
@@ -40,31 +40,26 @@ class PetEndpointsSpec
   }
 
   test("create pet") {
-
     val (auth, petRoutes, _) = getTestResources()
 
     forAll { pet: Pet =>
       (for {
-        request <- POST(pet, Uri.uri("/pets"))
+        request <- POST(pet, uri"/pets")
         response <- petRoutes.run(request)
-      } yield {
-        response.status shouldEqual Unauthorized
-      }).unsafeRunSync
+      } yield response.status shouldEqual Unauthorized).unsafeRunSync()
     }
 
     forAll { (pet: Pet, user: User) =>
       (for {
-        request <- POST(pet, Uri.uri("/pets"))
+        request <- POST(pet, uri"/pets")
           .flatMap(auth.embedToken(user, _))
         response <- petRoutes.run(request)
-      } yield {
-        response.status shouldEqual Ok
-      }).unsafeRunSync
+      } yield response.status shouldEqual Ok).unsafeRunSync()
     }
 
     forAll { (pet: Pet, user: User) =>
       (for {
-        createRq <- POST(pet, Uri.uri("/pets"))
+        createRq <- POST(pet, uri"/pets")
           .flatMap(auth.embedToken(user, _))
         response <- petRoutes.run(createRq)
         createdPet <- response.as[Pet]
@@ -74,17 +69,16 @@ class PetEndpointsSpec
       } yield {
         response.status shouldEqual Ok
         response2.status shouldEqual Ok
-      }).unsafeRunSync
+      }).unsafeRunSync()
     }
   }
 
   test("update pet") {
-
     val (auth, petRoutes, _) = getTestResources()
 
     forAll { (pet: Pet, user: AdminUser) =>
       (for {
-        createRequest <- POST(pet, Uri.uri("/pets"))
+        createRequest <- POST(pet, uri"/pets")
           .flatMap(auth.embedToken(user.value, _))
         createResponse <- petRoutes.run(createRequest)
         createdPet <- createResponse.as[Pet]
@@ -93,31 +87,25 @@ class PetEndpointsSpec
           .flatMap(auth.embedToken(user.value, _))
         updateResponse <- petRoutes.run(updateRequest)
         updatedPet <- updateResponse.as[Pet]
-      } yield {
-        updatedPet.name shouldEqual pet.name.reverse
-      }).unsafeRunSync
+      } yield updatedPet.name shouldEqual pet.name.reverse).unsafeRunSync()
     }
   }
 
   test("find by tag") {
-
     val (auth, petRoutes, petRepo) = getTestResources()
 
     forAll { (pet: Pet, user: AdminUser) =>
       (for {
-        createRequest <- POST(pet, Uri.uri("/pets"))
+        createRequest <- POST(pet, uri"/pets")
           .flatMap(auth.embedToken(user.value, _))
         createResponse <- petRoutes.run(createRequest)
         createdPet <- createResponse.as[Pet]
-      } yield {
-        createdPet.tags.toList.headOption match {
-          case Some(tag) =>
-            val petsFoundByTag = petRepo.findByTag(NonEmptyList.of(tag)).unsafeRunSync
-            petsFoundByTag.contains(createdPet) shouldEqual true
-          case _ => ()
-        }
-      }).unsafeRunSync
+      } yield createdPet.tags.toList.headOption match {
+        case Some(tag) =>
+          val petsFoundByTag = petRepo.findByTag(NonEmptyList.of(tag)).unsafeRunSync()
+          petsFoundByTag.contains(createdPet) shouldEqual true
+        case _ => ()
+      }).unsafeRunSync()
     }
-
   }
 }

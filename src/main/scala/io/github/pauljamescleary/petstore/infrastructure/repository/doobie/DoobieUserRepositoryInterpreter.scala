@@ -3,7 +3,7 @@ package infrastructure.repository.doobie
 
 import cats.data.OptionT
 import cats.effect.Bracket
-import cats.implicits._
+import cats.syntax.all._
 import doobie._
 import doobie.implicits._
 import io.circe.parser.decode
@@ -13,11 +13,9 @@ import io.github.pauljamescleary.petstore.infrastructure.repository.doobie.SQLPa
 import tsec.authentication.IdentityStore
 
 private object UserSQL {
-
   // H2 does not support JSON data type.
   implicit val roleMeta: Meta[Role] =
     Meta[String].imap(decode[Role](_).leftMap(throw _).merge)(_.asJson.toString)
-
 
   def insert(user: User): Update0 = sql"""
     INSERT INTO USERS (USER_NAME, FIRST_NAME, LAST_NAME, EMAIL, HASH, PHONE, ROLE)
@@ -54,8 +52,8 @@ private object UserSQL {
 }
 
 class DoobieUserRepositoryInterpreter[F[_]: Bracket[?[_], Throwable]](val xa: Transactor[F])
-extends UserRepositoryAlgebra[F]
-with IdentityStore[F, Long, User] { self =>
+    extends UserRepositoryAlgebra[F]
+    with IdentityStore[F, Long, User] { self =>
   import UserSQL._
 
   def create(user: User): F[User] =
@@ -71,9 +69,8 @@ with IdentityStore[F, Long, User] { self =>
   def findByUserName(userName: String): OptionT[F, User] =
     OptionT(byUserName(userName).option.transact(xa))
 
-  def delete(userId: Long): OptionT[F, User] = get(userId).semiflatMap(user =>
-    UserSQL.delete(userId).run.transact(xa).as(user)
-  )
+  def delete(userId: Long): OptionT[F, User] =
+    get(userId).semiflatMap(user => UserSQL.delete(userId).run.transact(xa).as(user))
 
   def deleteByUserName(userName: String): OptionT[F, User] =
     findByUserName(userName).mapFilter(_.id).flatMap(delete)

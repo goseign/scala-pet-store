@@ -4,7 +4,7 @@ package infrastructure.endpoint
 import cats.data.Validated.Valid
 import cats.data._
 import cats.effect.Sync
-import cats.implicits._
+import cats.syntax.all._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.github.pauljamescleary.petstore.domain.authentication.Auth
@@ -19,7 +19,6 @@ import tsec.jwt.algorithms.JWTMacAlgo
 import tsec.authentication._
 
 class PetEndpoints[F[_]: Sync, Auth: JWTMacAlgo] extends Http4sDsl[F] {
-
   import Pagination._
 
   /* Parses out status query param which could be multi param */
@@ -63,7 +62,7 @@ class PetEndpoints[F[_]: Sync, Auth: JWTMacAlgo] extends Http4sDsl[F] {
   }
 
   private def getPetEndpoint(petService: PetService[F]): AuthEndpoint[F, Auth] = {
-    case GET -> Root / LongVar(id) asAuthed _=>
+    case GET -> Root / LongVar(id) asAuthed _ =>
       petService.get(id).value.flatMap {
         case Right(found) => Ok(found.asJson)
         case Left(PetNotFoundError) => NotFound("The pet was not found")
@@ -79,7 +78,9 @@ class PetEndpoints[F[_]: Sync, Auth: JWTMacAlgo] extends Http4sDsl[F] {
   }
 
   private def listPetsEndpoint(petService: PetService[F]): AuthEndpoint[F, Auth] = {
-    case GET -> Root :? OptionalPageSizeMatcher(pageSize) :? OptionalOffsetMatcher(offset) asAuthed _=>
+    case GET -> Root :? OptionalPageSizeMatcher(pageSize) :? OptionalOffsetMatcher(
+          offset,
+        ) asAuthed _ =>
       for {
         retrieved <- petService.list(pageSize.getOrElse(10), offset.getOrElse(0))
         resp <- Ok(retrieved.asJson)
@@ -87,40 +88,46 @@ class PetEndpoints[F[_]: Sync, Auth: JWTMacAlgo] extends Http4sDsl[F] {
   }
 
   private def findPetsByStatusEndpoint(petService: PetService[F]): AuthEndpoint[F, Auth] = {
-    case GET -> Root / "findByStatus" :? StatusMatcher(Valid(Nil)) asAuthed _=>
-      // User did not specify any statuses
-      BadRequest("status parameter not specified")
-
-    case GET -> Root / "findByStatus" :? StatusMatcher(Valid(statuses)) asAuthed _=>
-      // We have a list of valid statuses, find them and return
-      for {
-        retrieved <- petService.findByStatus(NonEmptyList.fromListUnsafe(statuses))
-        resp <- Ok(retrieved.asJson)
-      } yield resp
+    case GET -> Root / "findByStatus" :? StatusMatcher(Valid(xs)) asAuthed _ =>
+      NonEmptyList.fromList(xs) match {
+        case None =>
+          // User did not specify any statuses
+          BadRequest("status parameter not specified")
+        case Some(statuses) =>
+          // We have a list of valid statuses, find them and return
+          for {
+            retrieved <- petService.findByStatus(statuses)
+            resp <- Ok(retrieved.asJson)
+          } yield resp
+      }
   }
 
   private def findPetsByTagEndpoint(petService: PetService[F]): AuthEndpoint[F, Auth] = {
-    case GET -> Root / "findByTags" :? TagMatcher(Valid(Nil)) asAuthed _=>
-      BadRequest("tag parameter not specified")
-
-    case GET -> Root / "findByTags" :? TagMatcher(Valid(tags)) asAuthed _=>
-      for {
-        retrieved <- petService.findByTag(NonEmptyList.fromListUnsafe(tags))
-        resp <- Ok(retrieved.asJson)
-      } yield resp
+    case GET -> Root / "findByTags" :? TagMatcher(Valid(xs)) asAuthed _ =>
+      NonEmptyList.fromList(xs) match {
+        case None =>
+          BadRequest("tag parameter not specified")
+        case Some(tags) =>
+          for {
+            retrieved <- petService.findByTag(tags)
+            resp <- Ok(retrieved.asJson)
+          } yield resp
+      }
   }
 
-  def endpoints(petService: PetService[F], auth: SecuredRequestHandler[F, Long, User, AugmentedJWT[Auth, Long]]): HttpRoutes[F] = {
-    val authEndpoints: AuthService[F, Auth]  = {
+  def endpoints(
+      petService: PetService[F],
+      auth: SecuredRequestHandler[F, Long, User, AugmentedJWT[Auth, Long]],
+  ): HttpRoutes[F] = {
+    val authEndpoints: AuthService[F, Auth] = {
       val allRoles =
-        createPetEndpoint(petService) orElse
-          getPetEndpoint(petService) orElse
-          listPetsEndpoint(petService) orElse
-          findPetsByStatusEndpoint(petService) orElse
-          findPetsByTagEndpoint(petService)
+        createPetEndpoint(petService)
+          .orElse(getPetEndpoint(petService))
+          .orElse(listPetsEndpoint(petService))
+          .orElse(findPetsByStatusEndpoint(petService))
+          .orElse(findPetsByTagEndpoint(petService))
       val onlyAdmin =
-        deletePetEndpoint(petService) orElse
-          updatePetEndpoint(petService)
+        deletePetEndpoint(petService).orElse(updatePetEndpoint(petService))
 
       Auth.allRolesHandler(allRoles)(Auth.adminOnly(onlyAdmin))
     }
@@ -130,8 +137,9 @@ class PetEndpoints[F[_]: Sync, Auth: JWTMacAlgo] extends Http4sDsl[F] {
 }
 
 object PetEndpoints {
-  def endpoints[F[_]: Sync, Auth: JWTMacAlgo](petService: PetService[F],
-                                                auth: SecuredRequestHandler[F, Long, User, AugmentedJWT[Auth, Long]]
-                                               ): HttpRoutes[F] =
+  def endpoints[F[_]: Sync, Auth: JWTMacAlgo](
+      petService: PetService[F],
+      auth: SecuredRequestHandler[F, Long, User, AugmentedJWT[Auth, Long]],
+  ): HttpRoutes[F] =
     new PetEndpoints[F, Auth].endpoints(petService, auth)
 }

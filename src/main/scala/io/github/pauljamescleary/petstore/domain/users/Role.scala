@@ -1,13 +1,11 @@
 package io.github.pauljamescleary.petstore.domain.users
 
 import cats._
-import cats.implicits._
 import tsec.authorization.{AuthGroup, SimpleAuthEnum}
 
 final case class Role(roleRepr: String)
 
 object Role extends SimpleAuthEnum[Role, String] {
-
   val Admin: Role = Role("Admin")
   val Customer: Role = Role("Customer")
 

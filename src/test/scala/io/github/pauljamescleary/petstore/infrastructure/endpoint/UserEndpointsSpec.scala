@@ -12,21 +12,22 @@ import domain.authentication._
 import infrastructure.repository.inmemory.UserRepositoryInMemoryInterpreter
 import org.http4s.client.dsl.Http4sClientDsl
 import org.http4s.server.Router
-import org.scalatest._
+import org.scalatest.funsuite.AnyFunSuite
 import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+
 import scala.concurrent.duration._
 import tsec.authentication.{JWTAuthenticator, SecuredRequestHandler}
 import tsec.mac.jca.HMACSHA256
+import org.scalatest.matchers.should.Matchers
 
 class UserEndpointsSpec
-    extends FunSuite
+    extends AnyFunSuite
     with Matchers
     with ScalaCheckPropertyChecks
     with PetStoreArbitraries
     with Http4sDsl[IO]
     with Http4sClientDsl[IO]
     with LoginTest {
-
   def userRoutes(): HttpApp[IO] = {
     val userRepo = UserRepositoryInMemoryInterpreter[IO]()
     val userValidation = UserValidationInterpreter[IO](userRepo)
@@ -36,7 +37,8 @@ class UserEndpointsSpec
     val usersEndpoint = UserEndpoints.endpoints(
       userService,
       BCrypt.syncPasswordHasher[IO],
-      SecuredRequestHandler(jwtAuth))
+      SecuredRequestHandler(jwtAuth),
+    )
     Router(("/users", usersEndpoint)).orNotFound
   }
 
@@ -45,7 +47,7 @@ class UserEndpointsSpec
 
     forAll { userSignup: SignupRequest =>
       val (_, authorization) = signUpAndLogIn(userSignup, userEndpoint).unsafeRunSync()
-      authorization should be('defined)
+      authorization shouldBe defined
     }
   }
 
@@ -65,7 +67,7 @@ class UserEndpointsSpec
         updateResponse.status shouldEqual Ok
         updatedUser.lastName shouldEqual createdUser.lastName.reverse
         createdUser.id shouldEqual updatedUser.id
-      }).unsafeRunSync
+      }).unsafeRunSync()
     }
   }
 
@@ -83,7 +85,7 @@ class UserEndpointsSpec
       } yield {
         getResponse.status shouldEqual Ok
         createdUser.userName shouldEqual getUser.userName
-      }).unsafeRunSync
+      }).unsafeRunSync()
     }
   }
 
@@ -97,9 +99,7 @@ class UserEndpointsSpec
         deleteRequest <- DELETE(Uri.unsafeFromString(s"/users/${createdUser.userName}"))
         deleteRequestAuth = deleteRequest.putHeaders(authorization)
         deleteResponse <- userEndpoint.run(deleteRequestAuth)
-      } yield {
-        deleteResponse.status shouldEqual Unauthorized
-      }).unsafeRunSync
+      } yield deleteResponse.status shouldEqual Unauthorized).unsafeRunSync()
     }
 
     forAll { userSignup: SignupRequest =>
@@ -116,7 +116,7 @@ class UserEndpointsSpec
         deleteResponse.status shouldEqual Ok
         // The user not the token longer exist
         getResponse.status shouldEqual Unauthorized
-      }).unsafeRunSync
+      }).unsafeRunSync()
     }
   }
 }

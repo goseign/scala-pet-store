@@ -17,9 +17,7 @@ import tsec.authentication.AugmentedJWT
 import tsec.jws.mac._
 import tsec.mac.jca._
 
-
 trait PetStoreArbitraries {
-
   val userNameLength = 16
   val userNameGen: Gen[String] = Gen.listOfN(userNameLength, Gen.alphaChar).map(_.mkString)
 
@@ -84,15 +82,11 @@ trait PetStoreArbitraries {
   case class CustomerUser(value: User)
 
   implicit val adminUser: Arbitrary[AdminUser] = Arbitrary {
-    user.arbitrary.map { user =>
-      AdminUser(user.copy(role = Role.Admin))
-    }
+    user.arbitrary.map(user => AdminUser(user.copy(role = Role.Admin)))
   }
 
   implicit val customerUser: Arbitrary[CustomerUser] = Arbitrary {
-    user.arbitrary.map { user =>
-      CustomerUser(user.copy(role = Role.Customer))
-    }
+    user.arbitrary.map(user => CustomerUser(user.copy(role = Role.Customer)))
   }
 
   implicit val userSignup = Arbitrary[SignupRequest] {
@@ -114,11 +108,18 @@ trait PetStoreArbitraries {
   implicit val jwtMac: Arbitrary[JWTMac[HMACSHA256]] = Arbitrary {
     for {
       key <- Gen.const(HMACSHA256.unsafeGenerateKey)
-      claims <- Gen.finiteDuration.map(exp => JWTClaims.withDuration[IO](expiration = Some(exp)).unsafeRunSync())
-    } yield JWTMacImpure.build[HMACSHA256](claims, key).getOrElse(throw new Exception("Inconceivable"))
+      claims <- Gen.finiteDuration.map(exp =>
+        JWTClaims.withDuration[IO](expiration = Some(exp)).unsafeRunSync(),
+      )
+    } yield JWTMacImpure
+      .build[HMACSHA256](claims, key)
+      .getOrElse(throw new Exception("Inconceivable"))
   }
 
-  implicit def augmentedJWT[A, I](implicit arb1: Arbitrary[JWTMac[A]], arb2: Arbitrary[I]): Arbitrary[AugmentedJWT[A, I]] =
+  implicit def augmentedJWT[A, I](implicit
+      arb1: Arbitrary[JWTMac[A]],
+      arb2: Arbitrary[I],
+  ): Arbitrary[AugmentedJWT[A, I]] =
     Arbitrary {
       for {
         id <- arbitrary[SecureRandomId]

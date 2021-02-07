@@ -5,9 +5,10 @@ import java.time.Instant
 import cats._
 import cats.data._
 import cats.effect.Bracket
-import cats.implicits._
+import cats.syntax.all._
 import doobie._
 import doobie.implicits._
+import doobie.implicits.legacy.instant._
 import tsec.authentication.{AugmentedJWT, BackingStore}
 import tsec.common.SecureRandomId
 import tsec.jws.JWSSerializer
@@ -37,13 +38,12 @@ private object AuthSQL {
 }
 
 class DoobieAuthRepositoryInterpreter[F[_]: Bracket[?[_], Throwable], A](
-  val key: MacSigningKey[A], 
-  val xa: Transactor[F]
+    val key: MacSigningKey[A],
+    val xa: Transactor[F],
 )(implicit
-  hs: JWSSerializer[JWSMacHeader[A]],
-  s: JWSMacCV[MacErrorM, A]
+    hs: JWSSerializer[JWSMacHeader[A]],
+    s: JWSMacCV[MacErrorM, A],
 ) extends BackingStore[F, SecureRandomId, AugmentedJWT[A, Long]] {
-
   override def put(jwt: AugmentedJWT[A, Long]): F[AugmentedJWT[A, Long]] =
     AuthSQL.insert(jwt).run.transact(xa).as(jwt)
 
@@ -65,8 +65,8 @@ class DoobieAuthRepositoryInterpreter[F[_]: Bracket[?[_], Throwable], A](
 
 object DoobieAuthRepositoryInterpreter {
   def apply[F[_]: Bracket[?[_], Throwable], A](key: MacSigningKey[A], xa: Transactor[F])(implicit
-    hs: JWSSerializer[JWSMacHeader[A]],
-    s: JWSMacCV[MacErrorM, A]
+      hs: JWSSerializer[JWSMacHeader[A]],
+      s: JWSMacCV[MacErrorM, A],
   ): DoobieAuthRepositoryInterpreter[F, A] =
     new DoobieAuthRepositoryInterpreter(key, xa)
 }
